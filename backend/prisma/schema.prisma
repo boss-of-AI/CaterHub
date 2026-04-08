@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── EVENT CATEGORIES ───────────────────────────────────────────────────────────
+// Admin-managed event types (Wedding, Corporate, Birthday, etc.)
+
+model EventCategory {
+  id          String         @id @default(uuid())
+  name        String         @unique // "WEDDING_RECEPTION", "CORPORATE", etc.
+  label       String                 // "Wedding Reception", "Corporate Event"
+  description String?
+  icon        String?                // emoji or icon identifier
+  imageUrl    String?                // optional hero image for the category
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  skeletons   MenuSkeleton[]
+}
+
+// ─── CATERER ────────────────────────────────────────────────────────────────────
+
+model Caterer {
+  id          String            @id @default(uuid())
+  name        String
+  username    String            @unique
+  password    String
+  phone       String
+  city        String
+  address     String
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  menus       Menu[]
+
+  // Requests sent to this caterer by Admin
+  assignments OrderAssignment[]
+
+  // The final orders this caterer was actually chosen to fulfill
+  finalOrders Order[] @relation("FinalCaterer")
+
+  @@unique([name, city])
+}
+
+// ─── LEGACY MENU (kept as secondary "Browse by Caterer" option) ─────────────
+
+model Menu {
+  id           String  @id @default(uuid())
+  name         String
+  description  String?
+  items        String[] // dish name array
+  pricePerHead Float
+  minHeadcount Int
+  isNonVeg     Boolean
+  catererId    String
+  caterer      Caterer @relation(fields: [catererId], references: [id])
+  orders       Order[]
+}
+
+// ─── CUSTOMER ───────────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String   @id @default(uuid())
+  phoneNumber String   @unique
+  name        String
+  email       String   @unique
+  password    String
+  createdAt   DateTime @default(now())
+  orders      Order[]
+}
+
+// ─── ORDER ──────────────────────────────────────────────────────────────────────
+
+model Order {
+  id                String            @id @default(uuid())
+  eventLocation     String
+  eventDate         DateTime
+  eventType         String
+  otherEventDetails String?           @db.VarChar(25)
+  headcount         Int
+  totalAmount       Float
+  status            String            @default("PENDING") // PENDING, BROADCASTED, ASSIGNED, COMPLETED
+  createdAt         DateTime          @default(now())
+
+  // Customer relation
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+
+  // Legacy menu relation (nullable — old orders use this)
+  menuId            String?
+  menu              Menu?    @relation(fields: [menuId], references: [id])
+
+  // NEW: Skeleton relation (nullable — new skeleton-based orders use this)
+  skeletonId        String?
+  skeleton          MenuSkeleton? @relation(fields: [skeletonId], references: [id])
+
+  // The final caterer chosen by Admin after biddings are in
+  finalCatererId    String?
+  finalCaterer      Caterer? @relation("FinalCaterer", fields: [finalCatererId], references: [id])
+
+  // All caterers this order was broadcasted to
+  possibleCaterers  OrderAssignment[]
+
+  // NEW: The dishes the customer selected from skeleton slots
+  dishSelections    OrderDishSelection[]
+}
+
+// ─── ORDER ASSIGNMENT (broadcast to caterers) ───────────────────────────────────
+
+model OrderAssignment {
+  id            String   @id @default(uuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+  catererId     String
+  caterer       Caterer  @relation(fields: [catererId], references: [id])
+  adminSetPrice Float    // The specific plate price the Admin decides for this caterer
+  status        String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt     DateTime @default(now())
+}
+
+// ─── ADMIN ──────────────────────────────────────────────────────────────────────
+
+model Admin {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  name     String
+}
+
+// ─── NOTIFICATION ───────────────────────────────────────────────────────────────
+
+model Notification {
+  id           String   @id @default(uuid())
+  title        String
+  message      String
+  type         String   // "NEW_ORDER", "SYSTEM_ALERT", "ORDER_UPDATE", "SYSTEM_BROADCAST"
+  isRead       Boolean  @default(false)
+  targetRole   String   // "ADMIN", "CATERER", "CUSTOMER"
+  targetUserId String?
+  referenceId  String?
+  createdAt    DateTime @default(now())
+}
+
+// ─── DISH LIBRARY ───────────────────────────────────────────────────────────────
+
+model Dish {
+  id              String             @id @default(uuid())
+  name            String
+  hindiName       String?
+  category        String             // WELCOME_DRINK, VEG_STARTER, NONVEG_STARTER, etc.
+  isNonVeg        Boolean            @default(false)
+  cuisine         String?            // NORTH_INDIAN, COASTAL, MAHARASHTRIAN, etc.
+  description     String?
+  tags            String[]
+  isPremium       Boolean            @default(false)
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  slots           SkeletonSlotDish[]
+  orderSelections OrderDishSelection[]
+}
+
+// ─── MENU SKELETON (admin-created templates under event categories) ─────────
+
+model MenuSkeleton {
+  id           String          @id @default(uuid())
+  name         String
+  occasion     String          // legacy field, kept for compatibility
+  description  String?
+  basePrice    Float
+  minHeadcount Int
+  maxHeadcount Int?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  slots        SkeletonSlot[]
+  orders       Order[]
+
+  // NEW: Link to EventCategory (admin-managed)
+  categoryId   String?
+  category     EventCategory?  @relation(fields: [categoryId], references: [id])
+}
+
+// ─── SKELETON SLOT ──────────────────────────────────────────────────────────────
+// Each slot = a course/section the customer picks dishes from
+
+model SkeletonSlot {
+  id           String             @id @default(uuid())
+  skeletonId   String
+  skeleton     MenuSkeleton       @relation(fields: [skeletonId], references: [id], onDelete: Cascade)
+  category     String             // matches Dish.category
+  label        String             // human-readable: "Welcome Drinks", "Veg Starters"
+  minChoices   Int
+  maxChoices   Int
+  isRequired   Boolean            @default(true)
+  sortOrder    Int                @default(0)
+  dishes       SkeletonSlotDish[]
+}
+
+// ─── SKELETON SLOT ↔ DISH (many-to-many) ────────────────────────────────────────
+
+model SkeletonSlotDish {
+  slotId String
+  slot   SkeletonSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  dishId String
+  dish   Dish         @relation(fields: [dishId], references: [id], onDelete: Cascade)
+
+  @@id([slotId, dishId])
+}
+
+// ─── ORDER DISH SELECTION ───────────────────────────────────────────────────────
+// Records which dishes the customer selected for each slot in their order
+
+model OrderDishSelection {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+  dishId  String
+  dish    Dish   @relation(fields: [dishId], references: [id])
+  slotId  String // reference to which skeleton slot this was picked from
+}
