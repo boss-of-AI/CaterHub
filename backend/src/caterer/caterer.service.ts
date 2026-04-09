@@ -17,15 +17,22 @@ export class CatererService {
     }
   }
 
-  async findAll() {
-    return this.prisma.caterer.findMany({
-      select: {
-        id: true, name: true, username: true, phone: true,
-        city: true, address: true, isActive: true, createdAt: true,
-        _count: { select: { menus: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(skip?: number, take?: number) {
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.caterer.findMany({
+        ...(skip !== undefined ? { skip } : {}),
+        ...(take !== undefined ? { take } : {}),
+        select: {
+          id: true, name: true, username: true, phone: true,
+          city: true, address: true, isActive: true, createdAt: true,
+          _count: { select: { menus: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.caterer.count(),
+    ]);
+
+    return { data, total };
   }
 
   async findOne(id: string) {

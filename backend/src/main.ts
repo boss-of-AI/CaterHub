@@ -7,6 +7,7 @@ dotenv.config({ path: join(process.cwd(), '.env') });
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { PaginationInterceptor } from './common/pagination.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,12 +22,16 @@ async function bootstrap() {
     }),
   );
 
+  // 1.5 Enable Global Pagination Interceptor
+  app.useGlobalInterceptors(new PaginationInterceptor());
+
   // 2. Configure CORS
   // Allowing both the Admin Panel (5173) and the upcoming Customer Site (3000)
   app.enableCors({
     origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
+    exposedHeaders: ['X-Total-Count'],
   });
 
   // 3. Start the Server

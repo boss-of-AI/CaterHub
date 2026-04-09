@@ -15,18 +15,20 @@ export class DishController {
   findAll(
     @Query('category') category?: string,
     @Query('isNonVeg') isNonVeg?: string,
+    @Query('active') active?: string,
+    @Query('_start') _start?: string,
+    @Query('_end') _end?: string,
   ) {
     const isNonVegBool = isNonVeg !== undefined ? isNonVeg === 'true' : undefined;
-    return this.dishService.findAll(category, isNonVegBool);
+    const isActive = active === 'true' ? true : undefined;
+    const skip = _start ? parseInt(_start, 10) : undefined;
+    const take = _start && _end ? parseInt(_end, 10) - skip! : undefined;
+    
+    return this.dishService.findAll(category, isNonVegBool, isActive, skip, take);
   }
 
   // Admin only: sees all including inactive
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @Get('admin/all')
-  findAllAdmin() {
-    return this.dishService.findAllAdmin();
-  }
+
 
   @Get(':id')
   findOne(@Param('id') id: string) {

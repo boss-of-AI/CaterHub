@@ -5,22 +5,24 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DishService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(category?: string, isNonVeg?: boolean) {
-    return this.prisma.dish.findMany({
-      where: {
-        ...(category ? { category } : {}),
-        ...(isNonVeg !== undefined ? { isNonVeg } : {}),
-        isActive: true,
-      },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
-    });
-  }
+  async findAll(category?: string, isNonVeg?: boolean, isActive?: boolean, skip?: number, take?: number) {
+    const where = {
+      ...(category ? { category } : {}),
+      ...(isNonVeg !== undefined ? { isNonVeg } : {}),
+      ...(isActive !== undefined ? { isActive } : {}),
+    };
 
-  async findAllAdmin() {
-    // Admin sees ALL dishes including inactive ones
-    return this.prisma.dish.findMany({
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
-    });
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.dish.findMany({
+        where,
+        ...(skip !== undefined ? { skip } : {}),
+        ...(take !== undefined ? { take } : {}),
+        orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      }),
+      this.prisma.dish.count({ where }),
+    ]);
+
+    return { data, total };
   }
 
   async findOne(id: string) {

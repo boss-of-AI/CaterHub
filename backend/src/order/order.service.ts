@@ -14,14 +14,28 @@ export class OrderService {
 
   // ─── CATERER ENDPOINTS ──────────────────────────────────────────────────────
 
-  async getMyInvitations(catererId: string) {
+  async getMyInvitations(catererId: string, filterStatus?: string) {
+    let orderStatusFilter: any = { in: ['BROADCASTED', 'ASSIGNED'] };
+    let assignmentStatusFilter: any = { in: ['PENDING', 'ACCEPTED', 'REJECTED'] };
+
+    if (filterStatus === 'PENDING') {
+      orderStatusFilter = 'BROADCASTED';
+      assignmentStatusFilter = 'PENDING';
+    } else if (filterStatus === 'ACCEPTED') {
+      assignmentStatusFilter = 'ACCEPTED';
+    } else if (filterStatus === 'WON') {
+      orderStatusFilter = 'ASSIGNED';
+      // Cannot easily filter finalCatererId in nested some, we will do it after or at top level
+    }
+
     const orders = await this.prisma.order.findMany({
       where: {
-        status: { in: ['BROADCASTED', 'ASSIGNED'] },
+        status: orderStatusFilter,
+        ...(filterStatus === 'WON' ? { finalCatererId: catererId } : {}),
         possibleCaterers: {
           some: {
             catererId: catererId,
-            status: { in: ['PENDING', 'ACCEPTED', 'REJECTED'] },
+            status: assignmentStatusFilter,
           },
         },
       },
@@ -274,23 +288,30 @@ export class OrderService {
     return order;
   }
 
-  async findAll(status?: string) {
+  async findAll(status?: string, skip?: number, take?: number) {
     try {
-      return await this.prisma.order.findMany({
-        where: { ...(status ? { status } : {}) },
-        include: {
-          customer: true,
-          finalCaterer: true,
-          menu: true,
-          skeleton: true,
-          dishSelections: { include: { dish: true } },
-          possibleCaterers: { include: { caterer: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      const where = { ...(status ? { status } : {}) };
+      const [data, total] = await this.prisma.$transaction([
+        this.prisma.order.findMany({
+          where,
+          ...(skip !== undefined ? { skip } : {}),
+          ...(take !== undefined ? { take } : {}),
+          include: {
+            customer: true,
+            finalCaterer: true,
+            menu: true,
+            skeleton: true,
+            dishSelections: { include: { dish: true } },
+            possibleCaterers: { include: { caterer: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.order.count({ where }),
+      ]);
+      return { data, total };
     } catch (error) {
       console.error('PRISMA ERROR:', error);
-      return [];
+      return { data: [], total: 0 };
     }
   }
 
@@ -311,12 +332,13 @@ export class OrderService {
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto) {
-    const { menuId, ...rest } = updateOrderDto;
+    const { menuId, skeletonId, dishSelections, phoneNumber, customerName, customerEmail, catererId, ...rest } = updateOrderDto;
     return await this.prisma.order.update({
       where: { id },
       data: {
         ...rest,
         ...(menuId && { menu: { connect: { id: menuId } } }),
+        ...(skeletonId && { skeleton: { connect: { id: skeletonId } } }),
       },
     });
   }

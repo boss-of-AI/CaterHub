@@ -22,7 +22,7 @@ const OCCASION_OPTIONS = [
 export const SkeletonCreate = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const { mutate: createSkeleton, isLoading } = useCreate();
+  const { mutate: createSkeleton, mutation } = useCreate();
 
   const onFinish = (values: any) => {
     createSkeleton(
@@ -135,7 +135,7 @@ export const SkeletonCreate = () => {
             type="primary"
             htmlType="submit"
             icon={<SaveOutlined />}
-            loading={isLoading}
+            loading={mutation.isPending}
             size="large"
             style={{ width: "100%", background: "#f97316", borderColor: "#f97316" }}
           >

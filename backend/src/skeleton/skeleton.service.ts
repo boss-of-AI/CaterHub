@@ -7,20 +7,27 @@ export class SkeletonService {
 
   // ─── SKELETON CRUD ──────────────────────────────────────────────────────────
 
-  async findAll() {
-    return this.prisma.menuSkeleton.findMany({
-      include: {
-        category: true,
-        slots: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            dishes: { include: { dish: true } },
+  async findAll(skip?: number, take?: number) {
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.menuSkeleton.findMany({
+        ...(skip !== undefined ? { skip } : {}),
+        ...(take !== undefined ? { take } : {}),
+        include: {
+          category: true,
+          slots: {
+            orderBy: { sortOrder: 'asc' },
+            include: {
+              dishes: { include: { dish: true } },
+            },
           },
+          _count: { select: { orders: true } },
         },
-        _count: { select: { orders: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.menuSkeleton.count(),
+    ]);
+
+    return { data, total };
   }
 
   async findByCategory(categoryId: string) {

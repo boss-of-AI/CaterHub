@@ -46,16 +46,18 @@ export const SkeletonList = () => {
   const navigate = useNavigate();
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  const { data, isLoading, refetch } = useList({
+  const { query, result } = useList({
     resource: "skeletons",
     pagination: { mode: "off" },
   });
+
+  const { isLoading, refetch } = query;
 
   const { mutate: deleteSkeleton } = useDelete();
   const { mutate: toggleActive } = useCustomMutation();
   const { mutate: cloneSkeleton } = useCustomMutation();
 
-  const skeletons = (data?.data as any[]) ?? [];
+  const skeletons = (result?.data as any[]) ?? [];
 
   const handleToggle = async (id: string) => {
     setTogglingId(id);

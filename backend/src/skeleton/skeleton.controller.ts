@@ -13,8 +13,14 @@ export class SkeletonController {
   // ─── PUBLIC (customer site reads active skeletons) ──────────────────────────
 
   @Get()
-  findAll() {
-    return this.skeletonService.findAll();
+  findAll(
+    @Query('_start') _start?: string,
+    @Query('_end') _end?: string,
+  ) {
+    const skip = _start ? parseInt(_start, 10) : undefined;
+    const take = _start && _end ? parseInt(_end, 10) - skip! : undefined;
+
+    return this.skeletonService.findAll(skip, take);
   }
 
   @Get('by-category/:categoryId')

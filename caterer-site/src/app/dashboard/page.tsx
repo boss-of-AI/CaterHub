@@ -11,6 +11,7 @@ export default function CatererDashboard() {
     const [loading, setLoading] = useState(true);
     const [isVerifying, setIsVerifying] = useState(true);
     const [myId, setMyId] = useState<string | null>(null);
+    const [filter, setFilter] = useState<string>('ALL');
     const router = useRouter();
 
     useEffect(() => {
@@ -27,7 +28,8 @@ export default function CatererDashboard() {
             setIsVerifying(false);
 
             try {
-                const res = await api.get('/orders/my-invitations');
+                setLoading(true);
+                const res = await api.get(`/orders/my-invitations${filter !== 'ALL' ? `?status=${filter}` : ''}`);
                 setJobs(res.data);
             } catch (err: any) {
                 if (err.response?.status === 401) {
@@ -40,7 +42,7 @@ export default function CatererDashboard() {
         };
 
         checkAuthAndFetch();
-    }, [router]);
+    }, [router, filter]);
 
     const handleAccept = async (orderId: string) => {
         try {
@@ -106,12 +108,25 @@ export default function CatererDashboard() {
 
                 {/* Navigation Tabs */}
                 <div className="flex gap-6 mb-8 border-b border-gray-200">
-                    <Link href="/dashboard" className="font-black text-orange-500 border-b-4 border-orange-500 pb-2 px-2">
+                    <Link href="/dashboard" className="font-black text-slate-800 border-b-4 border-slate-800 pb-2 px-2 transition-colors">
                         Incoming Jobs
                     </Link>
                     <Link href="/my-menus" className="font-bold text-gray-400 hover:text-gray-900 pb-2 px-2 transition-colors">
                         My Menus
                     </Link>
+                </div>
+
+                {/* Sub-Filters */}
+                <div className="flex gap-2 mb-6">
+                    {['ALL', 'PENDING', 'ACCEPTED', 'WON'].map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${filter === f ? 'bg-orange-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            {f === 'ALL' ? 'All Jobs' : f === 'PENDING' ? 'New Requests' : f === 'ACCEPTED' ? 'Waiting for Admin' : 'Won Jobs'}
+                        </button>
+                    ))}
                 </div>
 
                 {loading ? (

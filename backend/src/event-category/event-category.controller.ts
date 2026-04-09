@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete, UseGuards,
+  Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query
 } from '@nestjs/common';
 import { EventCategoryService } from './event-category.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,8 +13,16 @@ export class EventCategoryController {
   // ─── PUBLIC ───────────────────────────────────────────────────────────────
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(
+    @Query('active') active?: string,
+    @Query('_start') _start?: string,
+    @Query('_end') _end?: string,
+  ) {
+    const isActive = active === 'true' ? true : undefined;
+    const skip = _start ? parseInt(_start, 10) : undefined;
+    const take = _start && _end ? parseInt(_end, 10) - skip! : undefined;
+
+    return this.service.findAll(isActive, skip, take);
   }
 
   @Get(':id')
@@ -24,12 +32,7 @@ export class EventCategoryController {
 
   // ─── ADMIN ONLY ───────────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @Get('admin/all')
-  findAllAdmin() {
-    return this.service.findAllAdmin();
-  }
+
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

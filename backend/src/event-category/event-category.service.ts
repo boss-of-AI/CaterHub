@@ -5,25 +5,24 @@ import { PrismaService } from '../prisma/prisma.service';
 export class EventCategoryService {
   constructor(private prisma: PrismaService) {}
 
-  // Public: returns active categories with skeleton counts
-  async findAll() {
-    return this.prisma.eventCategory.findMany({
-      where: { isActive: true },
-      include: {
-        _count: { select: { skeletons: true } },
-      },
-      orderBy: { sortOrder: 'asc' },
-    });
-  }
+  // Returns categories, optionally filtered by active status
+  async findAll(isActive?: boolean, skip?: number, take?: number) {
+    const where = isActive !== undefined ? { isActive } : undefined;
 
-  // Admin: returns ALL categories including inactive
-  async findAllAdmin() {
-    return this.prisma.eventCategory.findMany({
-      include: {
-        _count: { select: { skeletons: true } },
-      },
-      orderBy: { sortOrder: 'asc' },
-    });
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.eventCategory.findMany({
+        where,
+        ...(skip !== undefined ? { skip } : {}),
+        ...(take !== undefined ? { take } : {}),
+        include: {
+          _count: { select: { skeletons: true } },
+        },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      this.prisma.eventCategory.count({ where }),
+    ]);
+
+    return { data, total };
   }
 
   // Public: returns a category with its active skeletons (for customer browsing)

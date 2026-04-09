@@ -10,8 +10,14 @@ export class CatererController {
 
   // Public: customer site and caterer-site read caterers
   @Get()
-  findAll() {
-    return this.catererService.findAll();
+  findAll(
+    @Query('_start') _start?: string,
+    @Query('_end') _end?: string,
+  ) {
+    const skip = _start ? parseInt(_start, 10) : undefined;
+    const take = _start && _end ? parseInt(_end, 10) - skip! : undefined;
+
+    return this.catererService.findAll(skip, take);
   }
 
   @Get(':id')

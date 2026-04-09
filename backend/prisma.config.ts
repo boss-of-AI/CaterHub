@@ -1,16 +1,9 @@
-import { defineConfig } from '@prisma/config';
-import * as dotenv from 'dotenv';
-import { join } from 'path';
-
-// Load the .env file from the current directory
-dotenv.config({ path: join(__dirname, '.env') });
+import "dotenv/config";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
+  schema: "prisma/schema.prisma",
   datasource: {
-    // This will now correctly find ziyan:ziyan123@...
-    url: process.env.DATABASE_URL,
-  },
-  migrations: {
-    seed: 'ts-node prisma/seed.ts',
+    url: process.env.DATABASE_URL!,
   },
 });

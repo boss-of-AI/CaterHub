@@ -39,6 +39,9 @@ import { SkeletonList } from "./pages/skeletons/list";
 import { SkeletonCreate } from "./pages/skeletons/create";
 import { SkeletonEdit } from "./pages/skeletons/edit";
 import { DishList } from "./pages/dishes/list";
+import { EventCategoryList } from "./pages/event-categories/list";
+import { EventCategoryCreate } from "./pages/event-categories/create";
+import { EventCategoryEdit } from "./pages/event-categories/edit";
 
 function App() {
   return (
@@ -60,6 +63,13 @@ function App() {
                     create: "/caterers/create",
                     edit: "/caterers/edit/:id",
                     meta: { label: "Caterers", canDelete: true },
+                  },
+                  {
+                    name: "event-categories",
+                    list: "/event-categories",
+                    create: "/event-categories/create",
+                    edit: "/event-categories/edit/:id",
+                    meta: { label: "Event Categories" },
                   },
                   {
                     name: "menus",
@@ -123,6 +133,12 @@ function App() {
                       <Route index element={<CatererList />} />
                       <Route path="create" element={<CatererCreate />} />
                       <Route path="edit/:id" element={<CatererEdit />} />
+                    </Route>
+
+                    <Route path="/event-categories">
+                      <Route index element={<EventCategoryList />} />
+                      <Route path="create" element={<EventCategoryCreate />} />
+                      <Route path="edit/:id" element={<EventCategoryEdit />} />
                     </Route>
 
                     <Route path="/menus">

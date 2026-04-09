@@ -7,7 +7,7 @@ import {
 import {
   SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined,
   EditOutlined, ArrowUpOutlined, ArrowDownOutlined,
-  CheckCircleOutlined, WarningOutlined,
+  CheckCircleOutlined, PauseCircleOutlined, WarningOutlined,
 } from "@ant-design/icons";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
@@ -87,7 +87,7 @@ export const SkeletonEdit = () => {
       try {
         const [skelRes, dishRes] = await Promise.all([
           api.get(`/skeletons/${id}`),
-          api.get("/dishes/admin/all"),
+          api.get("/dishes"),
         ]);
         setSkeleton(skelRes.data);
         setAllDishes(dishRes.data);

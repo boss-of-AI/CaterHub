@@ -69,7 +69,7 @@ export const DishList = () => {
 
   const load = async () => {
     setLoading(true);
-    const res = await api.get("/dishes/admin/all");
+    const res = await api.get("/dishes");
     setDishes(res.data);
     setLoading(false);
   };

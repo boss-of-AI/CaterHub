@@ -30,8 +30,8 @@ export class OrderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CATERER')
   @Get('my-invitations')
-  getMyInvitations(@Request() req: any) {
-    return this.orderService.getMyInvitations(req.user.sub);
+  getMyInvitations(@Request() req: any, @Query('status') status?: string) {
+    return this.orderService.getMyInvitations(req.user.sub, status);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -77,8 +77,15 @@ export class OrderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Get()
-  findAll(@Query('status') status?: string) {
-    return this.orderService.findAll(status);
+  findAll(
+    @Query('status') status?: string,
+    @Query('_start') _start?: string,
+    @Query('_end') _end?: string,
+  ) {
+    const skip = _start ? parseInt(_start, 10) : undefined;
+    const take = _start && _end ? parseInt(_end, 10) - skip! : undefined;
+
+    return this.orderService.findAll(status, skip, take);
   }
 
   @UseGuards(JwtAuthGuard)
