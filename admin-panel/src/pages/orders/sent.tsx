@@ -1,6 +1,6 @@
 import React from "react";
 import { List, useTable } from "@refinedev/antd";
-import { Table, Tag, Typography, Space, Button, message } from "antd";
+import { Table, Tag, Typography, Space, Button, message, Modal, Input } from "antd";
 import { CheckCircleOutlined, ClockCircleOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { HttpError } from "@refinedev/core";
 import api from "../../api/axios";
@@ -25,15 +25,28 @@ export const SentToCaterersList = () => {
         else window.location.reload();
     };
 
-    const handleFinalize = async (orderId: string, catererId: string, catererName: string) => {
-        if (window.confirm(`Assign this order to ${catererName}?`)) {
-            try {
-                await api.patch(`/orders/${orderId}/assign`, { catererId });
-                message.success(`Order successfully assigned to ${catererName}!`);
-                refetch();
-            } catch (err) {
-                message.error("Failed to finalize order. Check backend logs.");
-            }
+    const [finalizeModal, setFinalizeModal] = React.useState({ visible: false, orderId: "", catererId: "", catererName: "" });
+    const [confirmationFee, setConfirmationFee] = React.useState("");
+
+    const openFinalize = (orderId: string, catererId: string, catererName: string) => {
+        setFinalizeModal({ visible: true, orderId, catererId, catererName });
+        setConfirmationFee("");
+    };
+
+    const submitFinalize = async () => {
+        if (!confirmationFee || isNaN(Number(confirmationFee))) {
+            return message.error("Please enter a valid Confirmation Fee");
+        }
+        try {
+            await api.patch(`/orders/${finalizeModal.orderId}/assign`, { 
+                catererId: finalizeModal.catererId,
+                confirmationFee: Number(confirmationFee)
+            });
+            message.success(`Order assigned to ${finalizeModal.catererName} with fee ₹${confirmationFee}!`);
+            setFinalizeModal({ visible: false, orderId: "", catererId: "", catererName: "" });
+            refetch();
+        } catch (err: any) {
+            message.error(err.response?.data?.message || "Failed to finalize order. Check backend logs.");
         }
     };
 
@@ -133,7 +146,7 @@ export const SentToCaterersList = () => {
                                                     borderRadius: "4px",
                                                     cursor: "pointer"
                                                 }}
-                                                onClick={() => handleFinalize(r.id, asn.catererId, asn.caterer?.name)}
+                                                onClick={() => openFinalize(r.id, asn.catererId, asn.caterer?.name)}
                                             >
                                                 Finalize
                                             </button>
@@ -145,6 +158,28 @@ export const SentToCaterersList = () => {
                     )}
                 />
             </Table>
+
+            <Modal
+                title={`Finalize Order for ${finalizeModal.catererName}`}
+                open={finalizeModal.visible}
+                onOk={submitFinalize}
+                onCancel={() => setFinalizeModal({ visible: false, orderId: "", catererId: "", catererName: "" })}
+                okText="Finalize & Request Fee"
+                okButtonProps={{ style: { background: "#52c41a", borderColor: "#52c41a" } }}
+            >
+                <div style={{ marginBottom: "12px" }}>
+                    Please enter the <strong>Confirmation Fee</strong> you want the customer to pay upfront. 
+                    Once confirmed, the order will wait for the customer's payment before officially being scheduled.
+                </div>
+                <Input
+                    type="number"
+                    prefix="₹"
+                    placeholder="e.g. 5000"
+                    value={confirmationFee}
+                    onChange={(e) => setConfirmationFee(e.target.value)}
+                    onPressEnter={submitFinalize}
+                />
+            </Modal>
         </List>
     );
 };

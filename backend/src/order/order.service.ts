@@ -1,15 +1,24 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import * as bcrypt from 'bcrypt';
+import * as Razorpay from 'razorpay';
+import * as crypto from 'crypto';
+import { PdfService } from './pdf.service';
+
+const razorpay = new (Razorpay as any)({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret',
+});
 
 @Injectable()
 export class OrderService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private pdfService: PdfService,
   ) {}
 
   // ─── CATERER ENDPOINTS ──────────────────────────────────────────────────────
@@ -199,6 +208,92 @@ export class OrderService {
     return newOrder;
   }
 
+  async createRazorpayOrder(orderId: string, customerId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { menu: true, skeleton: true },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.customerId !== customerId) throw new BadRequestException('Unauthorized access to order');
+    if (order.status !== 'AWAITING_PAYMENT') throw new BadRequestException('Order is not ready for payment');
+    if (!order.confirmationFee) throw new BadRequestException('Confirmation fee is not set by Admin');
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(order.confirmationFee * 100), // paise
+      currency: 'INR',
+      receipt: `order_${orderId.split('-')[0]}`,
+      notes: {
+        orderId: order.id,
+        eventDate: order.eventDate.toDateString(),
+        menuName: order.menu?.name || order.skeleton?.name || 'Event Booking',
+      },
+    });
+
+    return {
+      razorpayOrderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      orderId: order.id,
+      description: `Advance Booking: ${order.menu?.name || order.skeleton?.name || 'Event'}`,
+      customerName: (await this.prisma.order.findUnique({ where: { id: orderId }, include: { customer: true } }))?.customer?.name || 'Customer',
+      customerEmail: (await this.prisma.order.findUnique({ where: { id: orderId }, include: { customer: true } }))?.customer?.email || '',
+      customerPhone: (await this.prisma.order.findUnique({ where: { id: orderId }, include: { customer: true } }))?.customer?.phoneNumber || '',
+    };
+  }
+
+  async verifyRazorpayPayment(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string, orderId: string) {
+    // Verify signature
+    const body = razorpayOrderId + '|' + razorpayPaymentId;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret')
+      .update(body)
+      .digest('hex');
+
+    if (expectedSignature !== razorpaySignature) {
+      throw new BadRequestException('Payment verification failed: invalid signature');
+    }
+
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'AWAITING_PAYMENT') {
+      return { success: true, message: 'Already confirmed', orderId };
+    }
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: 'CONFIRMED' }
+    });
+
+    await this.notifications.createCustomerNotification(
+      order.customerId,
+      'Booking Confirmed! 🎉',
+      `We have received your advance payment. Your booking is now locked in!`,
+      orderId
+    );
+
+    return { success: true, orderId };
+  }
+
+  async getOrderPdf(orderId: string, customerId: string): Promise<Buffer> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { 
+        customer: true, 
+        menu: true, 
+        skeleton: true, 
+        dishSelections: { include: { dish: true } } 
+      },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.customerId !== customerId) throw new UnauthorizedException('Access denied');
+    if (order.status !== 'CONFIRMED') throw new BadRequestException('Order is not fully confirmed yet');
+
+    return this.pdfService.generateBookingInvoice(order);
+  }
+
   // ─── ADMIN ENDPOINTS ────────────────────────────────────────────────────────
 
   async broadcastOrder(orderId: string, broadcasts: { catererId: string; adminSetPrice: number }[]) {
@@ -236,10 +331,14 @@ export class OrderService {
     return updatedOrder;
   }
 
-  async assignFinalCaterer(orderId: string, catererId: string) {
+  async assignFinalCaterer(orderId: string, catererId: string, confirmationFee?: number) {
     const order = await this.prisma.order.update({
       where: { id: orderId },
-      data: { status: 'ASSIGNED', finalCatererId: catererId },
+      data: {
+        status: 'AWAITING_PAYMENT',
+        finalCatererId: catererId,
+        ...(confirmationFee !== undefined && { confirmationFee })
+      },
       include: { finalCaterer: true, customer: true, menu: true, skeleton: true },
     });
 
@@ -262,8 +361,8 @@ export class OrderService {
 
     await this.notifications.createCustomerNotification(
       order.customerId,
-      'Caterer Confirmed! ✅',
-      `${order.finalCaterer?.name || 'A caterer'} has been assigned to your event and will contact you soon.`,
+      'Action Required: Pay Confirmation Fee 💳',
+      `Your event request has been successfully coordinated! Please log in and pay the confirmation fee to lock in your date.`,
       orderId,
     );
 

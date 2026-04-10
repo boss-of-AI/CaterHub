@@ -9,7 +9,11 @@ function decodeJwt(token: string): Record<string, any> | null {
 }
 
 export const authProvider: AuthProvider = {
-  login: async ({ email, password }) => {
+  login: async (params: any) => {
+    // Refine's AuthPage can send { email } or { username } depending on component version
+    const email = params.email || params.username;
+    const password = params.password;
+
     try {
       const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
       if (data.accessToken) {
@@ -17,8 +21,14 @@ export const authProvider: AuthProvider = {
         return { success: true, redirectTo: "/" };
       }
       return { success: false };
-    } catch {
-      return { success: false, error: { message: "Login Failed", name: "Invalid email or password" } };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: {
+          message: "Login Failed",
+          name: err?.response?.data?.message || "Invalid email or password"
+        }
+      };
     }
   },
   logout: async () => {

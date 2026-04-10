@@ -42,6 +42,7 @@ import { DishList } from "./pages/dishes/list";
 import { EventCategoryList } from "./pages/event-categories/list";
 import { EventCategoryCreate } from "./pages/event-categories/create";
 import { EventCategoryEdit } from "./pages/event-categories/edit";
+import { EventCalendarList } from "./pages/calendar/list";
 
 function App() {
   return (
@@ -93,6 +94,11 @@ function App() {
                     name: "approved-bookings",
                     list: "/approved",
                     meta: { label: "Approved Bookings", resource: "orders" },
+                  },
+                  {
+                    name: "calendar",
+                    list: "/calendar",
+                    meta: { label: "Event Calendar", resource: "orders" },
                   },
                   {
                     name: "skeletons",
@@ -158,6 +164,10 @@ function App() {
 
                     <Route path="/approved">
                       <Route index element={<ApprovedList />} />
+                    </Route>
+
+                    <Route path="/calendar">
+                      <Route index element={<EventCalendarList />} />
                     </Route>
 
                     <Route path="/skeletons">

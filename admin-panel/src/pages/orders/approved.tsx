@@ -20,7 +20,7 @@ export const ApprovedList = () => {
   const { tableProps, ...tableResult } = useTable<any, HttpError>({
     resource: "orders",
     filters: {
-      permanent: [{ field: "status", operator: "eq", value: "ASSIGNED" }],
+      permanent: [{ field: "status", operator: "in", value: ["AWAITING_PAYMENT", "CONFIRMED"] }],
     },
     meta: {
       populate: ["customer", "menu", "finalCaterer"],
@@ -114,7 +114,9 @@ export const ApprovedList = () => {
                 <CheckCircleOutlined /> {r.finalCaterer?.name || "N/A"}
               </Text>
               <Text type="secondary" style={{ fontSize: "12px" }}>📞 {r.finalCaterer?.phone}</Text>
-              <Tag color="green" style={{ marginTop: "4px" }}>ASSIGNED</Tag>
+              <Tag color={r.status === 'CONFIRMED' ? 'green' : 'blue'} style={{ marginTop: "4px" }}>
+                {r.status}
+              </Tag>
             </Space>
           )}
         />

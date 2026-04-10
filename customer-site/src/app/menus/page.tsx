@@ -1,4 +1,3 @@
-import api from '@/lib/api';
 import MenuList from '@/components/MenuList';
 import Link from 'next/link';
 
@@ -6,13 +5,16 @@ interface Props {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 export default async function MenusPage({ searchParams }: Props) {
     const resolvedSearchParams = await searchParams;
     const city = typeof resolvedSearchParams.city === 'string' ? resolvedSearchParams.city : 'Mumbai';
 
     let menus = [];
     try {
-        const { data } = await api.get('/menus');
+        const res = await fetch(`${API_URL}/menus`, { cache: 'no-store' });
+        const data = await res.json();
 
         menus = data
             .filter((menu: any) => menu.caterer?.city?.toLowerCase() === city.toLowerCase())

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Request, Res } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -23,6 +23,38 @@ export class OrderController {
   @Get('my-orders')
   getMyOrders(@Request() req: any) {
     return this.orderService.findByCustomer(req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('customer')
+  @Post(':id/checkout')
+  createCheckoutSession(@Param('id') id: string, @Request() req: any) {
+    return this.orderService.createRazorpayOrder(id, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('customer')
+  @Post(':id/verify-payment')
+  verifyPayment(@Param('id') id: string, @Body() body: any) {
+    return this.orderService.verifyRazorpayPayment(
+      body.razorpay_order_id,
+      body.razorpay_payment_id,
+      body.razorpay_signature,
+      id
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('customer')
+  @Get(':id/pdf')
+  async downloadPdf(@Param('id') id: string, @Request() req: any, @Res() res: any) {
+    const buffer = await this.orderService.getOrderPdf(id, req.user.sub);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="booking-${id.split('-')[0]}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 
   // ─── CATERER ENDPOINTS ────────────────────────────────────────────────────
@@ -63,8 +95,12 @@ export class OrderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Patch(':id/assign')
-  assign(@Param('id') id: string, @Body('catererId') catererId: string) {
-    return this.orderService.assignFinalCaterer(id, catererId);
+  assign(
+    @Param('id') id: string, 
+    @Body('catererId') catererId: string,
+    @Body('confirmationFee') confirmationFee: number
+  ) {
+    return this.orderService.assignFinalCaterer(id, catererId, confirmationFee);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

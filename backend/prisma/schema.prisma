@@ -84,7 +84,8 @@ model Order {
   otherEventDetails String?           @db.VarChar(25)
   headcount         Int
   totalAmount       Float
-  status            String            @default("PENDING") // PENDING, BROADCASTED, ASSIGNED, COMPLETED
+  status            String            @default("PENDING") // PENDING, BROADCASTED, ASSIGNED, AWAITING_PAYMENT, CONFIRMED
+  confirmationFee   Float?            // The advance booking fee the Admin sets
   createdAt         DateTime          @default(now())
 
   // Customer relation

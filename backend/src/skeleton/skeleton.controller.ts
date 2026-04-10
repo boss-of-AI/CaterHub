@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete, UseGuards,
+  Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query
 } from '@nestjs/common';
 import { SkeletonService } from './skeleton.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
